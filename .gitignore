@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+.upstream/
+.test-artifacts/
+.build/
+dist/
+*.tar.gz
+*.log
+.vs/
+.openai/.*

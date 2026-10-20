@@ -1,0 +1,11 @@
+{
+  "name": "pcl-patcher-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/serve.mjs",
+    "test": "dotnet run --project tests/PclPatcher.Tests"
+  }
+}

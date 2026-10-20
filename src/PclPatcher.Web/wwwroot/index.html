@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Patch PCL2 2.99.0.0 locally in your browser." />
+  <meta name="theme-color" content="#121212" />
+  <meta name="color-scheme" content="dark" />
+  <title>PCL Patcher</title>
+  <base href="/" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="app.css" />
+  <link rel="preload" id="webassembly" />
+  <script type="importmap"></script>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>PCL Patcher</h1>
+      <nav aria-label="Project links"><a href="https://github.com/l5z12/pcl" target="_blank" rel="noopener noreferrer">Source</a><a href="LICENSE.txt" target="_blank" rel="noopener">License</a></nav>
+    </header>
+    <main>
+      <p class="description">Restore downloads and modpack installation in PCL2 2.99.0.0.</p>
+      <p id="runtime" class="runtime" role="status" data-state="loading"><span id="runtime-text">Loading patch engine…</span></p>
+      <section id="patch-panel" aria-label="Patch executable" aria-busy="false">
+        <div class="dropzone" id="dropzone">
+          <h2 id="file-title">Drop your PCL2 executable here</h2>
+          <p id="file-subtitle">Original .exe file · up to 128 MB</p>
+          <label id="file-label" class="file-label disabled" for="file"><span id="browse-text">Loading engine…</span><input id="file" class="sr-only" type="file" accept=".exe" disabled aria-label="Choose PCL2 executable" /></label>
+        </div>
+        <p class="privacy">Processed on your device. No upload.</p>
+        <div id="error" class="error" role="alert" hidden><strong>Couldn't continue</strong><span id="error-message"></span></div>
+        <div id="file-info" class="file-info" hidden><dl><dt>Assembly</dt><dd id="assembly"></dd><dt>Version</dt><dd id="version"></dd><dt>SHA-256</dt><dd id="input-hash" class="hash"></dd></dl></div>
+        <p id="success" class="success" role="status" hidden>All five patches passed verification. Your file is ready.</p>
+        <button id="action" class="primary" disabled><span id="action-text">Select a file to continue</span></button>
+        <p class="button-note" id="button-note">A new file is created. Your original stays untouched.</p>
+        <button id="reset" class="secondary" hidden>Start over with another file</button>
+        <details id="report" hidden><summary>Patch report &amp; checksums</summary><pre id="log"></pre></details>
+      </section>
+    </main>
+  </div>
+  <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+  <noscript><p>JavaScript and WebAssembly are required.</p></noscript>
+  <script src="_framework/blazor.webassembly#[.{fingerprint}].js" autostart="false"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
