@@ -9,3 +9,8 @@ dist/
 *.log
 .vs/
 .openai/.*
+.wrangler/
+.env
+.env.*
+.dev.vars
+.dev.vars.*

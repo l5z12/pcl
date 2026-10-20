@@ -6,19 +6,20 @@ Supports **PCL2 2.99.0.0**. Select your executable, apply the patch, and downloa
 
 ## Build
 
-Requires .NET 10 SDK and Node.js.
+Requires .NET 10 SDK, Node.js 22+, and pnpm.
 
 ```sh
-npm run build
-npm run dev
+pnpm install
+pnpm build
+pnpm dev
 ```
 
 Static output: `dist/`. Local preview: `http://127.0.0.1:5173`.
 
-## Demo
+## Deploy
 
-https://pcl.l5z12.dev
+Push to `main` to deploy to **https://pcl.l5z12.dev** with GitHub Actions.
+Add repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` ([setup](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)).
+Use an Edit Cloudflare Workers token scoped to your account and the `l5z12.dev` zone. The zone must be active in that account.
 
-## License
-
-[MIT license](LICENSE). Original patcher copyright © 2026 Ryorin1337.
+[MIT license](LICENSE). Original patcher © 2026 Ryorin1337; web port © 2026 l5z12.

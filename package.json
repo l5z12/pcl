@@ -2,10 +2,20 @@
   "name": "pcl-patcher-web",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/serve.mjs",
-    "test": "dotnet run --project tests/PclPatcher.Tests"
+    "test": "dotnet run --project tests/PclPatcher.Tests",
+    "deploy": "wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.2"
   }
 }
