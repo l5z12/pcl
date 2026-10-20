@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 
 namespace PclPatcher.Core;
 
-public sealed record Inspection(string Assembly, string Version, int Size, string Sha256);
+public sealed record Inspection(string Assembly, string Version, int Size, string Sha256, string Edition, int Patches);
 public sealed record PatchOutput(byte[] Bytes, string Sha256, IReadOnlyList<string> Log);
 public sealed class CompatibilityException(string message) : Exception(message);
 
@@ -15,14 +15,16 @@ public static class PatchService
 
     public static Inspection Inspect(byte[] bytes)
     {
+        if (OpenBundle(bytes) is { } bundle) return CommunityEdition.Inspect(bytes, bundle);
         using var module = Load(bytes);
         Validate(module);
         return new(module.Assembly!.Name.String, module.Assembly.Version.ToString(),
-            bytes.Length, Hash(bytes));
+            bytes.Length, Hash(bytes), "PCL2", 5);
     }
 
     public static PatchOutput Patch(byte[] bytes)
     {
+        if (OpenBundle(bytes) is { } bundle) return CommunityEdition.Patch(bundle);
         using var module = Load(bytes);
         Validate(module);
         var log = new List<string>();
@@ -45,16 +47,32 @@ public static class PatchService
 
     public static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
-    private static ModuleDefMD Load(byte[] bytes)
+    private static void CheckExecutable(byte[] bytes)
     {
         if (bytes.Length > MaxFileSize)
             throw new CompatibilityException("This file exceeds the 128 MB limit.");
         if (bytes.Length < 64 || bytes[0] != 'M' || bytes[1] != 'Z')
             throw new CompatibilityException("This isn't a Windows executable. Choose your original PCL2 .exe file.");
+    }
+
+    // PCL CE ships as a .NET single-file bundle; PCL2 is a plain .NET Framework executable.
+    private static SingleFileBundle? OpenBundle(byte[] bytes)
+    {
+        CheckExecutable(bytes);
+        try { return SingleFileBundle.TryOpen(bytes); }
+        catch (InvalidDataException e)
+        {
+            throw new CompatibilityException($"This single-file executable can't be read: {e.Message}. Choose an original PCL CE {CommunityEdition.SupportedVersion} executable.");
+        }
+    }
+
+    private static ModuleDefMD Load(byte[] bytes)
+    {
+        CheckExecutable(bytes);
         try { return ModuleDefMD.Load(bytes); }
         catch (Exception)
         {
-            throw new CompatibilityException("This file isn't a readable .NET executable. Choose an original PCL2 2.99.0.0 executable.");
+            throw new CompatibilityException("This file isn't a readable .NET executable. Choose an original PCL2 2.99.0.0 or PCL CE 2.15.1 executable.");
         }
     }
 

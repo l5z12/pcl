@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Patch PCL2 2.99.0.0 locally in your browser." />
+  <meta name="description" content="Patch PCL2 2.99.0.0 or PCL CE 2.15.1 locally in your browser." />
   <meta name="theme-color" content="#121212" />
   <meta name="color-scheme" content="dark" />
   <title>PCL Patcher</title>
@@ -20,7 +20,7 @@
       <nav aria-label="Project links"><a href="https://github.com/l5z12/pcl" target="_blank" rel="noopener noreferrer">Source</a><a href="LICENSE.txt" target="_blank" rel="noopener">License</a></nav>
     </header>
     <main>
-      <p class="description">Restore downloads and modpack installation in PCL2 2.99.0.0.</p>
+      <p class="description">Restore downloads and modpack installation in PCL2 2.99.0.0 and PCL CE 2.15.1.</p>
       <p id="runtime" class="runtime" role="status" data-state="loading"><span id="runtime-text">Loading patch engine…</span></p>
       <section id="patch-panel" aria-label="Patch executable" aria-busy="false">
         <div class="dropzone" id="dropzone">
@@ -30,8 +30,8 @@
         </div>
         <p class="privacy">Processed on your device. No upload.</p>
         <div id="error" class="error" role="alert" hidden><strong>Couldn't continue</strong><span id="error-message"></span></div>
-        <div id="file-info" class="file-info" hidden><dl><dt>Assembly</dt><dd id="assembly"></dd><dt>Version</dt><dd id="version"></dd><dt>SHA-256</dt><dd id="input-hash" class="hash"></dd></dl></div>
-        <p id="success" class="success" role="status" hidden>All five patches passed verification. Your file is ready.</p>
+        <div id="file-info" class="file-info" hidden><dl><dt>Edition</dt><dd id="edition"></dd><dt>Assembly</dt><dd id="assembly"></dd><dt>Version</dt><dd id="version"></dd><dt>SHA-256</dt><dd id="input-hash" class="hash"></dd></dl></div>
+        <p id="success" class="success" role="status" hidden>Every patch passed verification. Your file is ready.</p>
         <button id="action" class="primary" disabled><span id="action-text">Select a file to continue</span></button>
         <p class="button-note" id="button-note">A new file is created. Your original stays untouched.</p>
         <button id="reset" class="secondary" hidden>Start over with another file</button>
