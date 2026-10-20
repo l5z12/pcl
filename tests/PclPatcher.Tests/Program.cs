@@ -1,6 +1,8 @@
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using PclPatcher.Core;
+using System.Reflection;
+using System.Runtime.Loader;
 
 var passed = 0;
 void Test(string name, Action action)
@@ -38,23 +40,92 @@ if (args.Length != 0)
         return;
     }
     var before = PatchService.Hash(original);
+    Inspection? inspection = null;
     PatchOutput? patched = null;
-    Test("Original PCL2 passes compatibility", () =>
+    Test("Original passes compatibility", () =>
     {
-        var inspection = PatchService.Inspect(original);
-        Assert(inspection.Version == "2.99.0.0", "Unexpected version");
-        Console.WriteLine($"  {inspection.Assembly} {inspection.Version}, {inspection.Size} bytes");
+        inspection = PatchService.Inspect(original);
+        Assert(inspection.Version == (inspection.Edition == "PCL CE" ? "2.15.1.0" : "2.99.0.0"), "Unexpected version");
+        Console.WriteLine($"  {inspection.Edition}: {inspection.Assembly} {inspection.Version}, {inspection.Size} bytes");
     });
-    Test("All five patches applied and output reopened", () =>
+    Test($"{inspection!.Patches} patches applied and output reopened", () =>
     {
         patched = PatchService.Patch(original);
-        Assert(patched.Log.Count == 6, "Incomplete patch report");
+        Assert(patched.Log.Count == inspection.Patches + 1, "Incomplete patch report");
         Assert(patched.Sha256 != before, "Output unchanged");
         foreach (var line in patched.Log) Console.WriteLine("  " + line);
     });
     Test("Original bytes and source file remain unchanged", () =>
         Assert(PatchService.Hash(original) == before && PatchService.Hash(File.ReadAllBytes(args[0])) == before, "Original modified"));
     Test("Already patched file rejected", () => Reject(patched!.Bytes, "already patched"));
+    if (inspection.Edition == "PCL CE") CommunityEditionTests(original, patched!);
+    else LegacyTests(original, patched!);
+    Directory.CreateDirectory(".test-artifacts");
+    File.WriteAllBytes($".test-artifacts/{Path.GetFileNameWithoutExtension(args[0])}.patched.exe", patched!.Bytes);
+    Console.WriteLine("Patched SHA-256: " + patched.Sha256);
+}
+else Console.WriteLine("Pass an original PCL2 2.99.0.0 or PCL CE 2.15.1 executable path to run the integration checks.");
+Console.WriteLine($"{passed} checks passed.");
+
+void CommunityEditionTests(byte[] original, PatchOutput patched)
+{
+    const string policyName = "PCL.RestrictedFeaturePolicy";
+    var source = SingleFileBundle.TryOpen(original)!;
+    var output = SingleFileBundle.TryOpen(patched.Bytes)!;
+    byte[] Main(SingleFileBundle bundle) => bundle.Read(bundle.Entries.Single(e => e.Path == CommunityEdition.MainAssembly)).ToArray();
+    byte[] Rebuild(Action<ModuleDefMD> change)
+    {
+        using var mod = ModuleDefMD.Load(Main(source));
+        change(mod);
+        using var stream = new MemoryStream(); mod.Write(stream);
+        return source.Replace(source.Entries.Single(e => e.Path == CommunityEdition.MainAssembly), stream.ToArray());
+    }
+    Test("Unsupported version rejected", () => Reject(Rebuild(m => m.Assembly.Version = new Version(2, 15, 2, 0)), "not supported"));
+    Test("Missing restriction policy rejected", () => Reject(Rebuild(m => m.Find(policyName, false).Name = "Renamed"), "policy was not found"));
+    Test("Region check outside the policy rejected", () => Reject(Rebuild(m =>
+    {
+        var install = m.Find("PCL.ModDownloadLib", false).FindMethod("McInstall").Body.Instructions;
+        install.Insert(0, Instruction.Create(OpCodes.Call, m.Find(policyName, false).FindMethod("Assess")));
+        install.Insert(1, Instruction.Create(OpCodes.Pop));
+    }), "outside the restriction policy"));
+    Test("Other bundled files keep their contents and alignment", () =>
+    {
+        foreach (var (after, prior) in output.Entries.Zip(source.Entries))
+        {
+            Assert(after.Path == prior.Path && after.Type == prior.Type, "Manifest changed at " + prior.Path);
+            Assert(after.Offset % 4096 == prior.Offset % 4096, "Alignment changed: " + prior.Path);
+            Assert(after.Path == CommunityEdition.MainAssembly || output.Read(after).SequenceEqual(source.Read(prior)), "Contents changed: " + prior.Path);
+        }
+    });
+    Test("All 15 feature gates reach the patched policy", () =>
+    {
+        using var mod = ModuleDefMD.Load(Main(output));
+        var policy = mod.Find(policyName, false);
+        Assert(policy.FindMethod("Check").Body.Instructions.Select(i => i.OpCode.Code).SequenceEqual(new[] { Code.Ldc_I4_1, Code.Ret }), "Check not patched");
+        Assert(policy.FindMethod("get_IsRestricted").Body.Instructions.Select(i => i.OpCode.Code).SequenceEqual(new[] { Code.Ldc_I4_0, Code.Ret }), "IsRestricted not patched");
+        var gates = mod.GetTypes().Where(t => t != policy).SelectMany(t => t.Methods).Where(m => m.HasBody)
+            .SelectMany(m => m.Body.Instructions).Count(i => i.Operand is IMethod m && m.DeclaringType?.FullName == policyName);
+        Assert(gates == 15, $"Expected 15 feature gates, found {gates}");
+    });
+    Test("Patched policy runs in the CLR and allows every feature", () =>
+    {
+        var context = new AssemblyLoadContext("pcl-ce", isCollectible: true);
+        context.Resolving += (alc, name) => output.Entries.FirstOrDefault(e => e.Path == name.Name + ".dll") is { } entry
+            ? alc.LoadFromStream(new MemoryStream(output.Read(entry).ToArray())) : null;
+        try
+        {
+            var policy = context.LoadFromStream(new MemoryStream(Main(output))).GetType(policyName, true)!;
+            const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+            Assert(policy.GetMethod("Check", flags)!.Invoke(null, ["minecraft-install", true]) is true, "Check blocked a feature");
+            Assert(policy.GetProperty("IsRestricted", flags)!.GetValue(null) is false, "IsRestricted is true");
+            policy.GetMethod("ThrowIfRestricted", flags)!.Invoke(null, ["modpack-install"]);
+        }
+        finally { context.Unload(); }
+    });
+}
+
+void LegacyTests(byte[] original, PatchOutput patched)
+{
     Test("Unsupported version rejected", () =>
     {
         using var mod = ModuleDefMD.Load(original);
@@ -72,7 +143,7 @@ if (args.Length != 0)
     });
     Test("Seven dispatch targets and argument signatures match", () =>
     {
-        using var mod = ModuleDefMD.Load(patched!.Bytes);
+        using var mod = ModuleDefMD.Load(patched.Bytes);
         var dispatch = mod.Find("PCL.ModModpack", false).FindMethod("ModpackInstallDispatch");
         var instructions = dispatch.Body.Instructions;
         var targets = new[] { "InstallPackCurseForge", "InstallPackHMCL", "InstallPackMMC", "InstallPackMCBBS",
@@ -93,7 +164,7 @@ if (args.Length != 0)
     });
     Test("Modpack return target lies outside finally regions", () =>
     {
-        using var mod = ModuleDefMD.Load(patched!.Bytes);
+        using var mod = ModuleDefMD.Load(patched.Bytes);
         var m = mod.Find("PCL.ModModpack", false).Methods.Single(m => m.Name == "ModpackInstall" && m.MethodSig.Params.Count == 3);
         var ins = m.Body.Instructions;
         foreach (var eh in m.Body.ExceptionHandlers.Where(h => h.HandlerType == ExceptionHandlerType.Finally))
@@ -106,9 +177,4 @@ if (args.Length != 0)
             }
         }
     });
-    Directory.CreateDirectory(".test-artifacts");
-    File.WriteAllBytes(".test-artifacts/Plain Craft Launcher 2.patched.exe", patched!.Bytes);
-    Console.WriteLine("Patched SHA-256: " + patched.Sha256);
 }
-else Console.WriteLine("Pass an original PCL2 2.99.0.0 executable path to run the integration checks.");
-Console.WriteLine($"{passed} checks passed.");

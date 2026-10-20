@@ -53,13 +53,14 @@ async function chooseFile(file) {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     inspection = await invoke("Inspect", bytes);
-    $("file-subtitle").textContent = `${formatSize(file.size)} · Compatible PCL2 executable`;
+    $("file-subtitle").textContent = `${formatSize(file.size)} · Compatible ${inspection.edition} executable`;
+    $("edition").textContent = inspection.edition;
     $("assembly").textContent = inspection.assembly;
     $("version").textContent = inspection.version;
     $("input-hash").textContent = inspection.sha256;
     $("file-info").hidden = false;
     $("action-text").textContent = "Patch executable";
-    announce("Compatible PCL2 executable. Ready to patch.");
+    announce(`Compatible ${inspection.edition} executable. Ready to patch.`);
   } catch (error) {
     inspection = null;
     $("file-subtitle").textContent = `${formatSize(file.size)} · Not compatible`;
@@ -93,7 +94,7 @@ $("action").addEventListener("click", async () => {
   }
   setBusy(true); $("error").hidden = true;
   $("action-text").textContent = "Patching and verifying…";
-  announce("Applying five patches and checking the output.");
+  announce(`Applying ${inspection.patches} patches and checking the output.`);
   await nextFrame();
   try {
     result = await invoke("Patch");
@@ -104,7 +105,7 @@ $("action").addEventListener("click", async () => {
     $("success").hidden = false;
     $("action-text").textContent = "Download patched executable";
     $("button-note").textContent = `${formatSize(result.size)} · Save alongside your original as a backup.`;
-    $("file-subtitle").textContent = "All 5 patches applied · Output verified";
+    $("file-subtitle").textContent = `${inspection.patches} patches applied · Output verified`;
     announce("Patching complete. Your verified executable is ready to download.");
   } catch (error) {
     result = null; inspection = null;
